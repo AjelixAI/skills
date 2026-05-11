@@ -14,7 +14,7 @@ allowed-tools: *
 ## Reading Public Sheets (No Credentials)
 
 ### Quick Start
-Extract data from public Google Sheets (anyone with link) into pandas. Delegate analysis to `data-analyst`, viz to `dashboard-builder`/`single-chart-builder`.
+Extract data from public Google Sheets (anyone with link) into pandas. Delegate analysis to `analyze-data`, viz to `web-assets-builder`.
 
 ```python
 import re
