@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Match</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.454.0/font/lucide.css">
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  /* Card flip: transform only (never width/height) so it stays on the compositor. */
+  .card { perspective: 800px; }
+  .card-inner {
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 320ms cubic-bezier(.16, 1, .3, 1);
+  }
+  .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute; inset: 0; border-radius: 12px;
+    display: grid; place-items: center;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  }
+  .card-back {
+    background: linear-gradient(150deg, #7c3aed, #6d28d9);
+    color: #fff; border: 1px solid #5b21b6;
+  }
+  .card-front {
+    background: #fff; border: 1px solid #e4e4e7;
+    transform: rotateY(180deg);
+    font-size: 30px; font-weight: 700; color: #18181b;
+  }
+  .card.matched .card-front { border-color: #059669; background: #ecfdf5; color: #047857; }
+  .card:focus-visible { outline: 2px solid #6d28d9; outline-offset: 3px; border-radius: 12px; }
+  @media (prefers-reduced-motion: reduce) {
+    .card-inner { transition: none; }
+  }
+</style>
+</head>
+<body class="bg-[#fafafa] text-[#18181b] antialiased">
+<div class="min-h-screen flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md">
+    <header class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-lg font-semibold tracking-tight">Memory Match</h1>
+        <p class="text-xs text-[#6b6b75] mt-0.5" id="hint">Find all 8 pairs</p>
+      </div>
+      <div class="flex items-center gap-4 text-right">
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Moves</div>
+          <div class="text-xl font-bold num leading-tight" id="moves">0</div>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Time</div>
+          <div class="text-xl font-bold num leading-tight" id="time">0:00</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Board: 4x4 grid of 8 pairs -->
+    <div id="board" class="grid grid-cols-4 gap-2" role="grid" aria-label="Memory game board"></div>
+
+    <div class="mt-4 flex items-center gap-2">
+      <button type="button" id="restart"
+              class="flex-1 py-2.5 rounded-xl bg-[#6d28d9] text-white font-semibold text-sm
+                     hover:bg-[#5b21b6] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6d28d9] focus-visible:ring-offset-2">
+        New game
+      </button>
+      <p class="text-[11px] text-[#9ca3af]">Click or press Enter to flip</p>
+    </div>
+
+    <!-- Win overlay -->
+    <div id="win" class="hidden fixed inset-0 bg-black/40 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="win-title">
+      <div class="bg-white rounded-2xl p-6 text-center max-w-xs w-full shadow-lg">
+        <div class="w-12 h-12 mx-auto grid place-items-center rounded-full bg-emerald-50 text-emerald-600 mb-3">
+          <i class="icon-trophy text-xl" aria-hidden="true"></i>
+        </div>
+        <h2 id="win-title" class="text-base font-semibold">Solved!</h2>
+        <p class="text-sm text-[#6b6b75] mt-1 num" id="win-stats">—</p>
+        <button type="button" id="play-again"
+                class="mt-4 w-full py-2.5 rounded-xl bg-[#6d28d9] text-white font-semibold text-sm hover:bg-[#5b21b6] transition-colors">
+          Play again
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Symbols double as the "artwork" — no image assets, nothing to 404.
+  var SYMBOLS = ['◆', '●', '▲', '■', '★', '♥', '☀', '☾'];
+  var FLIP_BACK_MS = 800;
+
+  var boardEl = document.getElementById('board');
+  var movesEl = document.getElementById('moves');
+  var timeEl = document.getElementById('time');
+  var hintEl = document.getElementById('hint');
+  var winEl = document.getElementById('win');
+
+  var state = null;
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function fmtTime(sec) {
+    return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  }
+
+  function newGame() {
+    if (state && state.timer) clearInterval(state.timer);
+    winEl.classList.add('hidden');
+
+    var deck = shuffle(SYMBOLS.concat(SYMBOLS).map(function (s, i) {
+      return { id: i, symbol: s };
+    }));
+
+    state = {
+      deck: deck,
+      first: null,          // first flipped card index
+      busy: false,
+      matched: 0,
+      moves: 0,
+      seconds: 0,
+      started: false,
+      timer: null
+    };
+
+    movesEl.textContent = '0';
+    timeEl.textContent = '0:00';
+    hintEl.textContent = 'Find all ' + SYMBOLS.length + ' pairs';
+
+    boardEl.innerHTML = deck.map(function (card, i) {
+      return '<div class="card aspect-square cursor-pointer" data-index="' + i + '"' +
+             ' role="gridcell" tabindex="0" aria-label="Hidden card">' +
+             '<div class="card-inner">' +
+             '<div class="card-face card-back"><i class="icon-help-circle text-lg opacity-70" aria-hidden="true"></i></div>' +
+             '<div class="card-face card-front">' + card.symbol + '</div>' +
+             '</div></div>';
+    }).join('');
+  }
+
+  function startTimer() {
+    if (state.started) return;
+    state.started = true;
+    state.timer = setInterval(function () {
+      state.seconds++;
+      timeEl.textContent = fmtTime(state.seconds);
+    }, 1000);
+  }
+
+  function flip(el) {
+    var idx = Number(el.dataset.index);
+    var card = state.deck[idx];
+
+    if (state.busy) return;
+    if (el.classList.contains('flipped') || el.classList.contains('matched')) return;
+
+    startTimer();
+    el.classList.add('flipped');
+    el.setAttribute('aria-label', 'Card showing ' + card.symbol);
+
+    if (state.first === null) {
+      state.first = idx;
+      return;
+    }
+
+    // Second card of the pair.
+    state.moves++;
+    movesEl.textContent = String(state.moves);
+
+    var firstIdx = state.first;
+    var firstEl = boardEl.querySelector('[data-index="' + firstIdx + '"]');
+    state.first = null;
+
+    if (state.deck[firstIdx].symbol === card.symbol) {
+      el.classList.add('matched');
+      firstEl.classList.add('matched');
+      el.setAttribute('aria-label', 'Matched ' + card.symbol);
+      firstEl.setAttribute('aria-label', 'Matched ' + card.symbol);
+      state.matched++;
+      hintEl.textContent = state.matched === SYMBOLS.length
+        ? 'All pairs found'
+        : (SYMBOLS.length - state.matched) + ' pairs to go';
+      if (state.matched === SYMBOLS.length) win();
+      return;
+    }
+
+    // Mismatch: lock input, flip both back.
+    state.busy = true;
+    setTimeout(function () {
+      el.classList.remove('flipped');
+      firstEl.classList.remove('flipped');
+      el.setAttribute('aria-label', 'Hidden card');
+      firstEl.setAttribute('aria-label', 'Hidden card');
+      state.busy = false;
+    }, FLIP_BACK_MS);
+  }
+
+  function win() {
+    if (state.timer) clearInterval(state.timer);
+    var perfect = state.moves === SYMBOLS.length;
+    document.getElementById('win-stats').textContent =
+      state.moves + ' moves · ' + fmtTime(state.seconds) + (perfect ? ' · perfect!' : '');
+    winEl.classList.remove('hidden');
+    document.getElementById('play-again').focus();
+  }
+
+  boardEl.addEventListener('click', function (e) {
+    var el = e.target.closest('.card');
+    if (el) flip(el);
+  });
+
+  // Keyboard: Enter/Space flips the focused card (the grid is tabbable).
+  boardEl.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target.closest('.card');
+    if (!el) return;
+    e.preventDefault();
+    flip(el);
+  });
+
+  document.getElementById('restart').addEventListener('click', newGame);
+  document.getElementById('play-again').addEventListener('click', newGame);
+
+  newGame();
+})();
+</script>
+</body>
+</html>

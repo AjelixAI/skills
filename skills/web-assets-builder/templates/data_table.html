@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Table</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.454.0/font/lucide.css">
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-[#fafafa] text-[#18181b] antialiased">
+<div class="max-w-[1200px] mx-auto p-6 space-y-4">
+
+  <!-- Header + search -->
+  <header class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-lg font-semibold tracking-tight">Customers</h1>
+      <p class="text-xs text-[#6b6b75] mt-0.5" id="count">—</p>
+    </div>
+    <div class="relative">
+      <i class="icon-search absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#9ca3af]" aria-hidden="true"></i>
+      <input id="search" type="search" placeholder="Search customers…" aria-label="Search customers"
+             class="pl-9 pr-3 py-2 text-sm w-64 rounded-lg border border-[#e4e4e7] bg-white
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6d28d9]">
+    </div>
+  </header>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl border border-[#e4e4e7] shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-[#fafafa]">
+          <tr class="text-left text-[11px] uppercase tracking-wider text-[#6b6b75]">
+            <!-- data-sort must match a key in the row objects; aria-sort is kept in sync -->
+            <th scope="col" data-sort="name"     class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-[#18181b]">Name <span class="sort-ind"></span></th>
+            <th scope="col" data-sort="plan"     class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-[#18181b]">Plan <span class="sort-ind"></span></th>
+            <th scope="col" data-sort="mrr"      class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-[#18181b] text-right">MRR <span class="sort-ind"></span></th>
+            <th scope="col" data-sort="seats"    class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-[#18181b] text-right">Seats <span class="sort-ind"></span></th>
+            <th scope="col" data-sort="status"   class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-[#18181b]">Status <span class="sort-ind"></span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody" class="num"></tbody>
+      </table>
+    </div>
+    <div class="flex items-center justify-between px-5 py-3 border-t border-[#e4e4e7] text-xs text-[#6b6b75]">
+      <span id="range">—</span>
+      <div class="flex items-center gap-1">
+        <button type="button" id="prev" class="px-2.5 py-1 rounded-md border border-[#e4e4e7] hover:bg-[#f4f4f5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Prev</button>
+        <span id="page" class="px-2 num"></span>
+        <button type="button" id="next" class="px-2.5 py-1 rounded-md border border-[#e4e4e7] hover:bg-[#f4f4f5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-[11px] text-[#9ca3af] text-center">Sample data — replace with your own.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Data: replace with the real rows ───────────────────────────────────
+  var ROWS = [
+    { name: 'Acme Corp',        plan: 'Enterprise', mrr: 4800, seats: 120, status: 'Active' },
+    { name: 'Globex',           plan: 'Growth',     mrr: 1250, seats: 34,  status: 'Active' },
+    { name: 'Initech',          plan: 'Starter',    mrr: 190,  seats: 5,   status: 'Trial' },
+    { name: 'Umbrella Health',  plan: 'Enterprise', mrr: 6200, seats: 210, status: 'Active' },
+    { name: 'Soylent Foods',    plan: 'Growth',     mrr: 980,  seats: 22,  status: 'Past due' },
+    { name: 'Hooli',            plan: 'Enterprise', mrr: 7400, seats: 305, status: 'Active' },
+    { name: 'Stark Industries', plan: 'Growth',     mrr: 2100, seats: 48,  status: 'Active' },
+    { name: 'Wayne Enterprises',plan: 'Starter',    mrr: 240,  seats: 8,   status: 'Churned' }
+  ];
+
+  var PAGE_SIZE = 5;
+  var state = { query: '', sortKey: 'mrr', sortDir: -1, page: 0 };
+
+  var money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  var tbody = document.getElementById('tbody');
+
+  var STATUS_STYLE = {
+    'Active':    'bg-emerald-50 text-emerald-700',
+    'Trial':     'bg-sky-50 text-sky-700',
+    'Past due':  'bg-amber-50 text-amber-700',
+    'Churned':   'bg-[#f0f0f2] text-[#6b6b75]'
+  };
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function filtered() {
+    var q = state.query.trim().toLowerCase();
+    var out = q
+      ? ROWS.filter(function (r) {
+          return (r.name + ' ' + r.plan + ' ' + r.status).toLowerCase().indexOf(q) !== -1;
+        })
+      : ROWS.slice();
+
+    var k = state.sortKey, dir = state.sortDir;
+    out.sort(function (a, b) {
+      var x = a[k], y = b[k];
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * dir;
+      return String(x).localeCompare(String(y)) * dir;
+    });
+    return out;
+  }
+
+  function render() {
+    var rows = filtered();
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    if (state.page >= pages) state.page = pages - 1;
+    if (state.page < 0) state.page = 0;
+
+    var start = state.page * PAGE_SIZE;
+    var slice = rows.slice(start, start + PAGE_SIZE);
+
+    if (!slice.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-5 py-12 text-center text-[#6b6b75]">' +
+        (state.query ? 'No customers match “' + escapeHtml(state.query) + '”' : 'No data yet') +
+        '</td></tr>';
+    } else {
+      tbody.innerHTML = slice.map(function (r) {
+        return '<tr class="border-t border-[#e4e4e7] hover:bg-[#fafafa] transition-colors">' +
+          '<td class="px-5 py-3 font-medium text-[#18181b]">' + escapeHtml(r.name) + '</td>' +
+          '<td class="px-5 py-3 text-[#6b6b75]">' + escapeHtml(r.plan) + '</td>' +
+          '<td class="px-5 py-3 text-right text-[#6b6b75]">' + money.format(r.mrr) + '</td>' +
+          '<td class="px-5 py-3 text-right text-[#6b6b75]">' + r.seats + '</td>' +
+          '<td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ' +
+            (STATUS_STYLE[r.status] || 'bg-[#f0f0f2] text-[#6b6b75]') + '">' +
+            escapeHtml(r.status) + '</span></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    document.getElementById('count').textContent =
+      rows.length + ' of ' + ROWS.length + ' customers';
+    document.getElementById('range').textContent = rows.length
+      ? 'Showing ' + (start + 1) + '–' + Math.min(start + PAGE_SIZE, rows.length) + ' of ' + rows.length
+      : 'No results';
+    document.getElementById('page').textContent = (state.page + 1) + ' / ' + pages;
+    document.getElementById('prev').disabled = state.page === 0;
+    document.getElementById('next').disabled = state.page >= pages - 1;
+
+    // keep aria-sort in sync with the visual indicator
+    document.querySelectorAll('th[data-sort]').forEach(function (th) {
+      var active = th.dataset.sort === state.sortKey;
+      th.setAttribute('aria-sort', active
+        ? (state.sortDir === 1 ? 'ascending' : 'descending')
+        : 'none');
+      th.querySelector('.sort-ind').textContent = active
+        ? (state.sortDir === 1 ? '▲' : '▼') : '';
+    });
+  }
+
+  document.querySelectorAll('th[data-sort]').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var k = th.dataset.sort;
+      if (state.sortKey === k) state.sortDir *= -1;
+      else { state.sortKey = k; state.sortDir = 1; }
+      state.page = 0;
+      render();
+    });
+  });
+
+  var searchTimer = null;
+  document.getElementById('search').addEventListener('input', function (e) {
+    var v = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { state.query = v; state.page = 0; render(); }, 120);
+  });
+
+  document.getElementById('prev').addEventListener('click', function () { state.page--; render(); });
+  document.getElementById('next').addEventListener('click', function () { state.page++; render(); });
+
+  render();
+})();
+</script>
+</body>
+</html>

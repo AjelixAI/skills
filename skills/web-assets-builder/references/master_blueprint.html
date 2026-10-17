@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asset Name</title>
+
+  <!-- ── CDN stylesheets (optional) ──────────────────────────────────────
+       Tailwind (utility classes) — pinned v3 Play CDN:
+       <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+       Icon font (class="icon-…"):
+       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.454.0/font/lucide.css">
+       See references/libraries.md for every verified URL.
+  ──────────────────────────────────────────────────────────────────────── -->
+
+  <style>
+    /* Inline CSS. The preview document cannot reach the app's styles, so
+       everything must live here (or in a CDN stylesheet above).
+       Tokens + component recipes: references/design-system.md */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #fafafa;
+      color: #18181b;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .card {
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- ── CONTENT ────────────────────────────────────────────────────────
+         Build the UI here. Keep it inside .wrap for consistent max-width.
+         Always handle the empty state (see references/design-system.md §5).
+    ──────────────────────────────────────────────────────────────────── -->
+
+    <div class="card">
+      <h1 style="margin:0 0 4px; font-size:17px; font-weight:600;">Asset Name</h1>
+      <p style="margin:0; color:#6b6b75;">Replace this with the real content.</p>
+    </div>
+
+  </div>
+
+  <!-- ── CDN scripts ───────────────────────────────────────────────────────
+       Every library must be loaded BEFORE the inline script that uses it.
+       Verified URLs: references/libraries.md
+       e.g. <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  ──────────────────────────────────────────────────────────────────────── -->
+
+  <script>
+    // Initialise here — at the end of <body>, so the DOM above exists.
+    // Wrap in an IIFE and use 'use strict' to avoid leaking globals.
+    (function () {
+      'use strict';
+
+      // Chart containers MUST have an explicit height, and charts need a
+      // resize handler, or they render blank / do not adapt:
+      //
+      //   var chart = echarts.init(document.getElementById('chart'));
+      //   chart.setOption({ /* … */ });
+      //   window.addEventListener('resize', function () { chart.resize(); });
+    })();
+  </script>
+</body>
+</html>

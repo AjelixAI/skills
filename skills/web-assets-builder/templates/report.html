@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics Report</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide-static@0.454.0/font/lucide.css">
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  .prose p { color: #6b6b75; line-height: 1.65; }
+  .prose p + p { margin-top: .75rem; }
+  /* Printing/PDF: charts keep their canvas size, cards avoid splitting across
+     pages, and interactive-only chrome is dropped. */
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .card, figure { break-inside: avoid; }
+    @page { margin: 14mm; }
+  }
+</style>
+</head>
+<body class="bg-[#fafafa] text-[#18181b] antialiased">
+
+<!-- REPLACE every figure and paragraph with the real analysis. The structure —
+     summary first, then evidence, then detail — is what makes a report readable. -->
+<article class="max-w-[860px] mx-auto p-6 sm:p-8 space-y-8">
+
+  <!-- ── Title block ────────────────────────────────────────────────────── -->
+  <header class="border-b border-[#e4e4e7] pb-6">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-[11px] uppercase tracking-widest text-[#9ca3af] font-semibold">Quarterly report</p>
+        <h1 class="mt-1.5 text-2xl font-bold tracking-tight">Q3 2026 Performance Review</h1>
+        <p class="mt-2 text-sm text-[#6b6b75]">
+          Prepared for the leadership team · <time datetime="2026-10-17">17 October 2026</time>
+        </p>
+      </div>
+      <button type="button" id="print" class="no-print shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg
+                     border border-[#e4e4e7] bg-white text-xs font-semibold hover:bg-[#f4f4f5] transition-colors">
+        <i class="icon-printer text-sm" aria-hidden="true"></i> Print
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Executive summary ──────────────────────────────────────────────── -->
+  <section>
+    <h2 class="text-xs font-semibold uppercase tracking-widest text-[#6b6b75] mb-3">Summary</h2>
+    <div class="prose text-sm">
+      <p>Revenue grew <strong class="text-[#18181b]">8.4% quarter over quarter</strong> to €284,900, driven mainly by
+         the enterprise segment. Unit volume declined 2.1%, so the growth is price/mix rather than demand.</p>
+      <p>The single item needing a decision is the paid-social channel: spend rose 34% while attributed revenue fell 6%.
+         Recommendation on page 3.</p>
+    </div>
+  </section>
+
+  <!-- ── Key figures ────────────────────────────────────────────────────── -->
+  <section class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    <div class="card bg-white p-4 rounded-xl border border-[#e4e4e7] shadow-sm">
+      <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Revenue</div>
+      <div class="mt-1.5 text-2xl font-bold num">€284,900</div>
+      <div class="mt-1 text-xs font-semibold text-emerald-600">▲ 8.4% QoQ</div>
+    </div>
+    <div class="card bg-white p-4 rounded-xl border border-[#e4e4e7] shadow-sm">
+      <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Units</div>
+      <div class="mt-1.5 text-2xl font-bold num">7,412</div>
+      <div class="mt-1 text-xs font-semibold text-red-600">▼ 2.1% QoQ</div>
+    </div>
+    <div class="card bg-white p-4 rounded-xl border border-[#e4e4e7] shadow-sm">
+      <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Gross margin</div>
+      <div class="mt-1.5 text-2xl font-bold num">62.3%</div>
+      <div class="mt-1 text-xs font-semibold text-emerald-600">▲ 1.4pt QoQ</div>
+    </div>
+    <div class="card bg-white p-4 rounded-xl border border-[#e4e4e7] shadow-sm">
+      <div class="text-[11px] uppercase tracking-wider text-[#6b6b75] font-semibold">Active accounts</div>
+      <div class="mt-1.5 text-2xl font-bold num">1,284</div>
+      <div class="mt-1 text-xs font-semibold text-emerald-600">▲ 3.9% QoQ</div>
+    </div>
+  </section>
+
+  <!-- ── Figure 1 ───────────────────────────────────────────────────────── -->
+  <figure class="card bg-white rounded-xl border border-[#e4e4e7] shadow-sm overflow-hidden">
+    <figcaption class="px-5 pt-5">
+      <h3 class="text-sm font-semibold">Revenue by month</h3>
+      <p class="text-xs text-[#6b6b75] mt-0.5">Six-month trend, all channels combined</p>
+    </figcaption>
+    <div id="chart-revenue" style="width:100%;height:280px;padding:0 8px 8px;"></div>
+  </figure>
+
+  <!-- ── Figure 2 ───────────────────────────────────────────────────────── -->
+  <figure class="card bg-white rounded-xl border border-[#e4e4e7] shadow-sm overflow-hidden">
+    <figcaption class="px-5 pt-5">
+      <h3 class="text-sm font-semibold">Channel contribution</h3>
+      <p class="text-xs text-[#6b6b75] mt-0.5">Share of revenue, current quarter</p>
+    </figcaption>
+    <div class="grid items-center gap-2" style="grid-template-columns:1fr;padding:0 8px 8px;">
+      <div id="chart-channel" style="width:100%;height:260px;"></div>
+    </div>
+  </figure>
+
+  <!-- ── Detail table ───────────────────────────────────────────────────── -->
+  <section class="card bg-white rounded-xl border border-[#e4e4e7] shadow-sm overflow-hidden">
+    <h2 class="text-sm font-semibold px-5 py-4 border-b border-[#e4e4e7]">Detail by channel</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <caption class="sr-only">Revenue, spend and return by marketing channel</caption>
+        <thead>
+          <tr class="text-left text-[11px] uppercase tracking-wider text-[#6b6b75] bg-[#fafafa]">
+            <th scope="col" class="px-5 py-2.5 font-semibold">Channel</th>
+            <th scope="col" class="px-5 py-2.5 font-semibold text-right">Revenue</th>
+            <th scope="col" class="px-5 py-2.5 font-semibold text-right">Spend</th>
+            <th scope="col" class="px-5 py-2.5 font-semibold text-right">ROAS</th>
+            <th scope="col" class="px-5 py-2.5 font-semibold text-right">QoQ</th>
+          </tr>
+        </thead>
+        <tbody id="detail-body" class="num"></tbody>
+        <tfoot>
+          <tr class="border-t-2 border-[#e4e4e7] font-semibold text-[#18181b]">
+            <td class="px-5 py-3">Total</td>
+            <td class="px-5 py-3 text-right" id="sum-revenue">—</td>
+            <td class="px-5 py-3 text-right" id="sum-spend">—</td>
+            <td class="px-5 py-3 text-right" id="sum-roas">—</td>
+            <td class="px-5 py-3 text-right">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Recommendation ─────────────────────────────────────────────────── -->
+  <section class="card rounded-xl border border-[#e4e4e7] bg-[#fafafa] p-5">
+    <h2 class="flex items-center gap-2 text-sm font-semibold">
+      <i class="icon-lightbulb text-[#6d28d9]" aria-hidden="true"></i> Recommendation
+    </h2>
+    <div class="prose text-sm mt-2.5">
+      <p>Cap paid-social spend at the current level for Q4 and reallocate the incremental budget to email,
+         which delivers <strong class="text-[#18181b]">2.4× the ROAS</strong> at a third of the acquisition cost.</p>
+    </div>
+  </section>
+
+  <footer class="border-t border-[#e4e4e7] pt-5 text-[11px] text-[#9ca3af] flex flex-wrap justify-between gap-2">
+    <span>Sample figures — replace with your own data.</span>
+    <span>Source: internal analytics</span>
+  </footer>
+</article>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Data: replace with the real analysis ───────────────────────────────
+  var MONTHS = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'];
+  var REVENUE = [42100, 45300, 43800, 49600, 51200, 52900];
+
+  var CHANNELS = [
+    { name: 'Enterprise', revenue: 142400, spend: 28400, qoq: 12.6 },
+    { name: 'Mid-market', revenue: 81200,  spend: 24600, qoq: 6.1 },
+    { name: 'SMB',        revenue: 41300,  spend: 18900, qoq: -3.4 },
+    { name: 'Paid social',revenue: 20000,  spend: 14200, qoq: -6.0 }
+  ];
+
+  var PALETTE = ['#6d28d9', '#0ea5e9', '#059669', '#d97706', '#dc2626', '#7c3aed'];
+  var eur = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+
+  function axis() {
+    return {
+      axisLine: { lineStyle: { color: '#e4e4e7' } },
+      axisLabel: { color: '#6b6b75', fontSize: 11 }
+    };
+  }
+
+  // ── Detail table (also drives the footer totals) ───────────────────────
+  var tbody = document.getElementById('detail-body');
+  var totals = CHANNELS.reduce(function (a, c) {
+    a.revenue += c.revenue; a.spend += c.spend; return a;
+  }, { revenue: 0, spend: 0 });
+
+  tbody.innerHTML = CHANNELS.map(function (c) {
+    var roas = c.spend ? (c.revenue / c.spend) : 0;
+    var up = c.qoq >= 0;
+    return '<tr class="border-t border-[#e4e4e7]">' +
+      '<td class="px-5 py-2.5 font-medium text-[#18181b]">' + c.name + '</td>' +
+      '<td class="px-5 py-2.5 text-right text-[#6b6b75]">' + eur.format(c.revenue) + '</td>' +
+      '<td class="px-5 py-2.5 text-right text-[#6b6b75]">' + eur.format(c.spend) + '</td>' +
+      '<td class="px-5 py-2.5 text-right text-[#6b6b75]">' + roas.toFixed(1) + '×</td>' +
+      '<td class="px-5 py-2.5 text-right font-semibold ' + (up ? 'text-emerald-600' : 'text-red-600') + '">' +
+        (up ? '▲ ' : '▼ ') + Math.abs(c.qoq).toFixed(1) + '%</td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('sum-revenue').textContent = eur.format(totals.revenue);
+  document.getElementById('sum-spend').textContent = eur.format(totals.spend);
+  document.getElementById('sum-roas').textContent = (totals.revenue / totals.spend).toFixed(1) + '×';
+
+  // ── Charts ─────────────────────────────────────────────────────────────
+  var charts = [];
+
+  function boot() {
+    if (!window.echarts) return;
+
+    var revEl = document.getElementById('chart-revenue');
+    if (revEl) {
+      var c1 = echarts.init(revEl);
+      c1.setOption({
+        grid: { left: 8, right: 16, top: 20, bottom: 8, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          valueFormatter: function (v) { return eur.format(v); },
+          borderColor: '#e4e4e7', textStyle: { color: '#18181b', fontSize: 12 }
+        },
+        xAxis: Object.assign({ type: 'category', data: MONTHS, boundaryGap: false }, axis()),
+        yAxis: Object.assign({
+          type: 'value', splitLine: { lineStyle: { color: '#f0f0f2' } },
+          axisLabel: { color: '#6b6b75', fontSize: 11, formatter: function (v) { return '€' + (v / 1000) + 'k'; } }
+        }, { axisLine: { lineStyle: { color: '#e4e4e7' } } }),
+        series: [{
+          type: 'line', smooth: true, symbolSize: 6, data: REVENUE,
+          lineStyle: { width: 2, color: PALETTE[0] }, itemStyle: { color: PALETTE[0] },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(109,40,217,.18)' },
+            { offset: 1, color: 'rgba(109,40,217,0)' }
+          ]) }
+        }]
+      });
+      charts.push(c1);
+    }
+
+    var chEl = document.getElementById('chart-channel');
+    if (chEl) {
+      var c2 = echarts.init(chEl);
+      c2.setOption({
+        tooltip: {
+          trigger: 'item',
+          valueFormatter: function (v) { return eur.format(v); },
+          borderColor: '#e4e4e7', textStyle: { color: '#18181b', fontSize: 12 }
+        },
+        legend: {
+          bottom: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10,
+          textStyle: { color: '#6b6b75', fontSize: 11 }
+        },
+        color: PALETTE,
+        series: [{
+          type: 'pie', radius: ['50%', '72%'], center: ['50%', '44%'],
+          itemStyle: { borderColor: '#fff', borderWidth: 2 },
+          label: { show: false },
+          emphasis: { label: { show: true, fontSize: 13, fontWeight: 600, formatter: '{b}\n{d}%' } },
+          data: CHANNELS.map(function (c) { return { name: c.name, value: c.revenue }; })
+        }]
+      });
+      charts.push(c2);
+    }
+
+    window.addEventListener('resize', function () {
+      charts.forEach(function (c) { c.resize(); });
+    });
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () { charts.forEach(function (c) { c.resize(); }); });
+      charts.forEach(function (c) { var d = c.getDom(); if (d) ro.observe(d); });
+    }
+  }
+
+  if (document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot);
+
+  document.getElementById('print').addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body>
+</html>
